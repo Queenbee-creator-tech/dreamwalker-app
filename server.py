@@ -7,6 +7,7 @@ import base64
 import json
 import mimetypes
 import re
+import subprocess
 import time
 
 APP_DIR = Path(__file__).resolve().parent
@@ -53,6 +54,14 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _run_git(self, *args):
+        return subprocess.run(
+            ["git", "-C", str(self.workspace), *args],
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/api/config":
@@ -61,6 +70,27 @@ class Handler(SimpleHTTPRequestHandler):
                 "workspacePath": str(self.workspace),
                 "repoBase": self.repo_base,
             })
+        if path == "/api/git-status":
+            try:
+                inside = self._run_git("rev-parse", "--is-inside-work-tree")
+                if inside.returncode != 0 or inside.stdout.strip() != "true":
+                    return self._json(200, {"isGitRepo": False})
+
+                branch = self._run_git("branch", "--show-current")
+                status = self._run_git("status", "--porcelain")
+                remote = self._run_git("remote", "get-url", "origin")
+
+                changes = [line for line in status.stdout.splitlines() if line.strip()]
+                return self._json(200, {
+                    "isGitRepo": True,
+                    "branch": branch.stdout.strip(),
+                    "clean": len(changes) == 0,
+                    "changedCount": len(changes),
+                    "remote": remote.stdout.strip() if remote.returncode == 0 else "",
+                })
+            except Exception as exc:
+                return self._json(500, {"error": str(exc), "isGitRepo": False})
+
         if path == "/api/board":
             try:
                 if not self.board_file.exists():
