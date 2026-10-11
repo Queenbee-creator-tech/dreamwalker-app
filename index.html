@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dreamwalker Visual Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="eyebrow">Dreamwalker</div>
+        <h1>Story Workspace</h1>
+        <p>Local-first visual planning for your selected book workspace.</p>
+      </div>
+      <div class="sidebar-actions">
+        <button id="newFolderBtn">+ Subfolder</button>
+        <button id="newBoardBtn">+ Board</button>
+        <button id="renameFolderBtn">Rename folder</button>
+        <button id="deleteFolderBtn" class="danger">Delete folder</button>
+      </div>
+      <div id="library" class="library" aria-label="Boards"></div>
+      <div class="sidebar-footer">
+        <button id="exportBtn">Export backup</button>
+        <label class="file-button">Import backup<input id="importInput" type="file" accept="application/json"></label>
+        <div class="workspace-note">Book files and media live in the selected workspace, not inside the Dreamwalker app.</div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="toolbar">
+        <div><div class="eyebrow" id="boardFolderLabel">Characters</div><h2 id="boardTitle">Heroine</h2></div>
+        <div class="toolbar-actions">
+          <button id="addNoteBtn">+ Sticky note</button>
+          <button id="addCardBtn">+ Card</button>
+          <label class="file-button compact">+ Image<input id="imageInput" type="file" accept="image/*" multiple></label>
+          <button id="connectBtn">Connect</button>
+          <button id="bringFrontBtn">Bring to front</button>
+          <button id="sendBackBtn">Send to back</button>
+          <button id="renameBoardBtn">Rename board</button>
+          <button id="deleteBoardBtn" class="danger">Delete board</button>
+          <button id="deleteBtn" class="danger">Delete selected</button>
+          <button id="saveNowBtn">Save now</button>
+        </div>
+      </header>
+      <section class="status-row">
+        <span><i class="dot locked"></i> Locked</span>
+        <span><i class="dot working"></i> Working</span>
+        <span><i class="dot possible"></i> Possibility</span>
+        <span><i class="dot parked"></i> Parked</span>
+        <span><i class="dot open"></i> Open</span>
+        <span id="saveState" class="save-state">Loading shared board…</span>
+      </section>
+      <div class="canvas-shell"><div id="canvas" class="canvas" tabindex="0" aria-label="Visual board canvas"><svg id="connections" class="connections" aria-hidden="true"></svg></div></div>
+    </main>
+  </div>
+  <template id="itemTemplate">
+    <article class="board-item" tabindex="0">
+      <div class="item-handle"><span class="item-type">Note</span><select class="status-select" aria-label="Status"><option value="open">Open</option><option value="locked">Locked</option><option value="working">Working</option><option value="possible">Possibility</option><option value="parked">Parked</option></select></div>
+      <input class="item-title" aria-label="Card title">
+      <textarea class="item-body" aria-label="Card notes"></textarea>
+      <a class="source-link" target="_blank" rel="noopener">Open source file</a>
+      <div class="resize-handle" aria-label="Resize card" title="Drag to resize"></div>
+    </article>
+  </template>
+  <script src="app.js"></script>
+</body>
+</html>
