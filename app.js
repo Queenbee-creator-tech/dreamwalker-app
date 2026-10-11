@@ -550,7 +550,7 @@
     saveState.textContent="Getting latest book updates…";
     try{
       const result=await gitAction("/api/git-pull");
-      saveState.textContent=result.message||"Book repo updated";
+      saveState.textContent=result.summary||"Book repo updated";
       await refreshGitStatus();
     }catch(err){
       saveState.textContent="Get Latest failed";
@@ -568,7 +568,7 @@
     saveState.textContent="Saving book version…";
     try{
       const result=await gitAction("/api/git-commit",{message:trimmed});
-      saveState.textContent=result.message||"Book version saved";
+      saveState.textContent=result.summary||"Version saved";
       await refreshGitStatus();
     }catch(err){
       saveState.textContent="Save Version failed";
@@ -580,7 +580,7 @@
     saveState.textContent="Pushing book repo to GitHub…";
     try{
       const result=await gitAction("/api/git-push");
-      saveState.textContent=result.message||"Book repo pushed";
+      saveState.textContent=result.summary||"Book repo pushed to GitHub";
       await refreshGitStatus();
     }catch(err){
       saveState.textContent="Push failed";
