@@ -43,6 +43,22 @@ dreamwalker-book/.dreamwalker/
 
 The app itself does not need to live inside the book repository.
 
+## Creative workspace controls
+
+Dreamwalker is optimized as a visual author workspace rather than a document editor.
+
+Current board controls include:
+- compact sticky notes and cards
+- visual section headings for grouping moodboard material
+- multi-image upload and drag-and-drop image placement
+- Shift-click multi-select and group movement
+- duplicate, layering, delete, and item connections
+- undo/redo with Command/Ctrl+Z
+- zoom controls, Fit board, Start, and Command/Ctrl+wheel zoom
+- Space-drag or middle-mouse panning
+- a large auto-expanding visual canvas
+- a quieter Sync menu for book-repo save/pull/commit/push actions
+
 ## Local-first
 
 The app runs on `127.0.0.1` using a small Python server and opens in the browser. The browser is the interface; the data remains in the selected local workspace.
