@@ -15,10 +15,17 @@
         <p>Local-first visual planning for your selected book workspace.</p>
       </div>
       <div class="sidebar-actions">
-        <button id="newFolderBtn">+ Subfolder</button>
+        <button id="newFolderBtn">+ Folder</button>
         <button id="newBoardBtn">+ Board</button>
-        <button id="renameFolderBtn">Rename folder</button>
-        <button id="deleteFolderBtn" class="danger">Delete folder</button>
+        <details class="sidebar-more">
+          <summary>Manage</summary>
+          <div class="sidebar-more-actions">
+            <button id="renameFolderBtn">Rename folder</button>
+            <button id="deleteFolderBtn" class="danger">Delete folder</button>
+            <button id="renameBoardBtn">Rename board</button>
+            <button id="deleteBoardBtn" class="danger">Delete board</button>
+          </div>
+        </details>
       </div>
       <div id="library" class="library" aria-label="Boards"></div>
       <div class="sidebar-footer">
@@ -29,33 +36,56 @@
     </aside>
     <main class="main">
       <header class="toolbar">
-        <div><div class="eyebrow" id="boardFolderLabel">Characters</div><h2 id="boardTitle">Heroine</h2></div>
-        <div class="toolbar-actions">
-          <button id="addNoteBtn">+ Sticky note</button>
+        <div class="board-heading"><div class="eyebrow" id="boardFolderLabel">Characters</div><h2 id="boardTitle">Heroine</h2></div>
+        <div class="toolbar-actions primary-tools">
+          <button id="addNoteBtn">+ Note</button>
           <button id="addCardBtn">+ Card</button>
+          <button id="addSectionBtn">+ Section</button>
           <label class="file-button compact">+ Image<input id="imageInput" type="file" accept="image/*" multiple></label>
-          <button id="connectBtn">Connect</button>
-          <button id="bringFrontBtn">Bring to front</button>
-          <button id="sendBackBtn">Send to back</button>
-          <button id="renameBoardBtn">Rename board</button>
-          <button id="deleteBoardBtn" class="danger">Delete board</button>
-          <button id="deleteBtn" class="danger">Delete selected</button>
-          <button id="saveNowBtn">Save now</button>
-          <button id="getLatestBtn">Get Latest</button>
-          <button id="saveVersionBtn">Save Version</button>
-          <button id="pushGitBtn">Push to GitHub</button>
+        </div>
+        <div class="toolbar-actions view-tools">
+          <button id="undoBtn" title="Undo (⌘Z)">↶</button>
+          <button id="redoBtn" title="Redo (⇧⌘Z)">↷</button>
+          <button id="zoomOutBtn" title="Zoom out">−</button>
+          <button id="zoomLabel" class="zoom-label" type="button" title="Reset zoom">100%</button>
+          <button id="zoomInBtn" title="Zoom in">+</button>
+          <button id="fitBtn">Fit board</button>
+          <button id="homeBtn">Start</button>
+          <details class="sync-menu">
+            <summary>Sync</summary>
+            <div class="sync-popover">
+              <button id="saveNowBtn">Save now</button>
+              <button id="getLatestBtn">Get Latest</button>
+              <button id="saveVersionBtn">Save Version</button>
+              <button id="pushGitBtn">Push to GitHub</button>
+            </div>
+          </details>
         </div>
       </header>
+      <section id="selectionBar" class="selection-bar" hidden>
+        <span id="selectionCount">1 selected</span>
+        <button id="duplicateBtn">Duplicate</button>
+        <button id="connectBtn">Connect</button>
+        <button id="bringFrontBtn">Front</button>
+        <button id="sendBackBtn">Back</button>
+        <button id="deleteBtn" class="danger">Delete</button>
+      </section>
       <section class="status-row">
-        <span><i class="dot locked"></i> Locked</span>
-        <span><i class="dot working"></i> Working</span>
-        <span><i class="dot possible"></i> Possibility</span>
-        <span><i class="dot parked"></i> Parked</span>
-        <span><i class="dot open"></i> Open</span>
+        <details class="status-key">
+          <summary>Status key</summary>
+          <div class="status-legend">
+            <span><i class="dot locked"></i> Locked</span>
+            <span><i class="dot working"></i> Working</span>
+            <span><i class="dot possible"></i> Possibility</span>
+            <span><i class="dot parked"></i> Parked</span>
+            <span><i class="dot open"></i> Open</span>
+          </div>
+        </details>
+        <span class="board-tip">Shift-click selects several · Space-drag pans · Drop images anywhere</span>
         <span id="gitState" class="git-state">Checking book repo…</span>
         <span id="saveState" class="save-state">Loading shared board…</span>
       </section>
-      <div class="canvas-shell"><div id="canvas" class="canvas" tabindex="0" aria-label="Visual board canvas"><svg id="connections" class="connections" aria-hidden="true"></svg></div></div>
+      <div id="canvasShell" class="canvas-shell"><div id="canvas" class="canvas" tabindex="0" aria-label="Visual board canvas"><svg id="connections" class="connections" aria-hidden="true"></svg></div></div>
     </main>
   </div>
   <template id="itemTemplate">
