@@ -108,10 +108,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        try:
-            payload = self._read_json()
-        except Exception as exc:
-            return self._json(400, {"error": str(exc)})
+        payload = {}
+        if path in ("/api/board", "/api/image", "/api/git-commit"):
+            try:
+                payload = self._read_json()
+            except Exception as exc:
+                return self._json(400, {"error": str(exc)})
 
         if path == "/api/git-pull":
             result=self._run_git("pull","--ff-only",timeout=60)
