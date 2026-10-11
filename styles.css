@@ -112,3 +112,8 @@ button:focus-visible,.file-button:focus-within,.board-item:focus-visible,input:f
 }
 
 .workspace-note{font-size:12px;line-height:1.4;color:var(--muted);padding-top:4px}
+
+.git-state{padding:4px 8px;border-radius:999px;background:#eceaf0;color:var(--muted)}
+.git-state.git-clean{background:#e7f3ea;color:#2f6a3c}
+.git-state.git-dirty{background:#fff1cf;color:#7a5a12}
+.git-state.git-error{background:#f7e5e5;color:#8c2e2e}
