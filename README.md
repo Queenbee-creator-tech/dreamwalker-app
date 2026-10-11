@@ -72,3 +72,10 @@ Dreamwalker now exposes three explicit Git actions for the selected book workspa
 - **Push to GitHub** pushes committed book changes to the repo's configured remote.
 
 These controls operate on the selected book workspace only. They do not change the Dreamwalker app development repo.
+
+
+## Temporary migration copies
+
+During the original app/book separation, local copies may exist at `data/` and `assets/uploads/` inside the app folder. Those paths are ignored by Git and are not part of the Dreamwalker application. After the book workspace migration is verified, they can be deleted locally.
+
+The authoritative visual workspace belongs under the selected book workspace's `.dreamwalker/` directory.
