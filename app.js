@@ -3,13 +3,15 @@
   let repoBase = "";
   let workspaceLabel = "workspace";
   let state = null, selectedId = null, connectFrom = null, drag = null, resize = null, saveTimer = null;
+  let selectedIds = new Set(), undoStack = [], redoStack = [], zoom = 1, spaceDown = false, pan = null;
   const COLLAPSE_KEY = "dreamwalker-visual-studio-collapsed-v1";
   const NAV_KEY = "dreamwalker-visual-studio-navigation-v1";
   let collapsedFolders = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]"));
 
   const el = id => document.getElementById(id);
-  const canvas = el("canvas"), connectionsSvg = el("connections"), library = el("library");
+  const canvas = el("canvas"), connectionsSvg = el("connections"), library = el("library"), canvasShell = el("canvasShell");
   const boardTitle = el("boardTitle"), boardFolderLabel = el("boardFolderLabel"), saveState = el("saveState"), gitState = el("gitState");
+  const selectionBar = el("selectionBar"), selectionCount = el("selectionCount"), zoomLabel = el("zoomLabel");
 
   async function loadConfig(){
     try{
@@ -85,62 +87,23 @@
     return found;
   }
 
-  function migrateWorldCourtFolders(data){
-    const world=(data.folders||[]).find(f=>f.id==="worldbuilding");
-    const courts=(world?.children||[]).find(f=>f.id==="world-courts");
-    if(!courts)return false;
 
-    const defs=[
-      {boardId:"court-light",folderId:"world-court-light",name:"Light Court",match:"light court"},
-      {boardId:"court-dark",folderId:"world-court-dark",name:"Dark Court",match:"dark court"},
-      {boardId:"court-ancient",folderId:"world-court-ancient",name:"Ancient Court",match:"ancient court"},
-      {boardId:"court-spirit",folderId:"world-court-spirit",name:"Spirit / Neutral Court",match:"spirit"}
-    ];
-
-    let changed=false;
-    const courtFolders=[];
-
-    for(const def of defs){
-      let folder=(courts.children||[]).find(c=>c.id===def.folderId);
-      const board=(courts.boards||[]).find(b=>b.id===def.boardId);
-
-      if(!folder && board){
-        folder={
-          id:def.folderId,
-          name:def.name,
-          boards:[{...board,name:"Overview"}],
-          children:[]
-        };
-        changed=true;
-      }
-      if(folder) courtFolders.push(folder);
-    }
-
-    if(!courtFolders.length)return false;
-
-    const courtFolderIds=new Set(courtFolders.map(f=>f.id));
-    const remaining=[];
-    for(const child of (courts.children||[])){
-      if(courtFolderIds.has(child.id))continue;
-      const n=(child.name||"").toLowerCase();
-      const target=defs.find(def=>n.includes(def.match));
-      const targetFolder=target?courtFolders.find(f=>f.id===target.folderId):null;
-      if(targetFolder){
-        targetFolder.children=targetFolder.children||[];
-        if(!targetFolder.children.some(c=>c.id===child.id)) targetFolder.children.push(child);
-        changed=true;
-      }else{
-        remaining.push(child);
+  function compactLegacyVisuals(data){
+    if(Number(data.visualUiVersion||0)>=4) return false;
+    for(const list of Object.values(data.items||{})){
+      for(const item of list||[]){
+        if(item.type==="image") continue;
+        if(item.type==="section"){
+          item.w=Math.max(Number(item.w)||520,420);
+          item.h=Math.max(Number(item.h)||90,70);
+          continue;
+        }
+        item.w=Math.min(Number(item.w)||240,360);
+        item.h=Math.min(Number(item.h)||150,190);
       }
     }
-
-    if((courts.boards||[]).some(b=>defs.some(d=>d.boardId===b.id))){
-      courts.boards=(courts.boards||[]).filter(b=>!defs.some(d=>d.boardId===b.id));
-      changed=true;
-    }
-
-    courts.children=[...courtFolders,...remaining];
-    return changed;
+    data.visualUiVersion=4;
+    return true;
   }
 
   async function loadState(){
@@ -149,7 +112,7 @@
       const res=await fetch("/api/board",{cache:"no-store"});
       if(!res.ok) throw new Error("Shared board unavailable");
       state=await res.json();
-      const migratedCourts=migrateWorldCourtFolders(state);
+      const compacted=compactLegacyVisuals(state);
       const nav=JSON.parse(localStorage.getItem(NAV_KEY)||"{}");
       const navBoard=findBoardInData(state,nav.activeBoard);
       if(navBoard){
@@ -161,8 +124,8 @@
         state.activeFolder=first?.folder?.id||state.folders?.[0]?.id||null;
       }
       localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
-      saveState.textContent=migratedCourts?"Court folders reorganized and saved":"Shared board loaded";
-      if(migratedCourts)setTimeout(persist,50);
+      saveState.textContent=compacted?"Visual cards compacted":"Shared board loaded";
+      if(compacted)setTimeout(persist,50);
     }catch(err){
       const raw=localStorage.getItem(STORAGE_KEY);
       if(!raw) throw err;
