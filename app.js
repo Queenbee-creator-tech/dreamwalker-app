@@ -175,7 +175,7 @@
     try{
       const res=await fetch("/api/board",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sharedState)});
       if(!res.ok) throw new Error("Save failed");
-      saveState.textContent="Saved to ${workspaceLabel}";
+      saveState.textContent=`Saved to ${workspaceLabel}`;
     }catch(err){
       saveState.textContent="Saved in browser only — workspace save failed";
     }
