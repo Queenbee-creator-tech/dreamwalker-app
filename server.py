@@ -54,13 +54,17 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def _run_git(self, *args):
+    def _run_git(self, *args, timeout=30):
         return subprocess.run(
             ["git", "-C", str(self.workspace), *args],
             text=True,
             capture_output=True,
-            timeout=10,
+            timeout=timeout,
         )
+
+    def _git_failure(self, result, fallback):
+        detail=(result.stderr or result.stdout or fallback).strip()
+        return self._json(400, {"ok": False, "error": detail})
 
     def do_GET(self):
         path = urlparse(self.path).path
@@ -108,6 +112,40 @@ class Handler(SimpleHTTPRequestHandler):
             payload = self._read_json()
         except Exception as exc:
             return self._json(400, {"error": str(exc)})
+
+        if path == "/api/git-pull":
+            result=self._run_git("pull","--ff-only",timeout=60)
+            if result.returncode != 0:
+                return self._git_failure(result,"Git pull failed")
+            message=(result.stdout or "Book repo is already up to date.").strip()
+            return self._json(200, {"ok": True, "message": message})
+
+        if path == "/api/git-commit":
+            message=str(payload.get("message","")).strip()
+            if not message:
+                return self._json(400, {"ok": False, "error": "Commit message is required."})
+
+            add=self._run_git("add","-A",timeout=60)
+            if add.returncode != 0:
+                return self._git_failure(add,"Could not stage book changes")
+
+            staged=self._run_git("diff","--cached","--quiet")
+            if staged.returncode == 0:
+                return self._json(200, {"ok": True, "message": "No book changes to save."})
+            if staged.returncode not in (0,1):
+                return self._git_failure(staged,"Could not check staged changes")
+
+            commit=self._run_git("commit","-m",message,timeout=60)
+            if commit.returncode != 0:
+                return self._git_failure(commit,"Git commit failed")
+            return self._json(200, {"ok": True, "message": (commit.stdout or "Book version saved.").strip()})
+
+        if path == "/api/git-push":
+            result=self._run_git("push",timeout=120)
+            if result.returncode != 0:
+                return self._git_failure(result,"Git push failed")
+            message=(result.stderr or result.stdout or "Book repo pushed to GitHub.").strip()
+            return self._json(200, {"ok": True, "message": message})
 
         if path == "/api/board":
             if not isinstance(payload, dict) or "folders" not in payload or "items" not in payload:
