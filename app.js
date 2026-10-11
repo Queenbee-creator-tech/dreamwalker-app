@@ -89,10 +89,11 @@
 
 
   function compactLegacyVisuals(data){
-    if(Number(data.visualUiVersion||0)>=4) return false;
+    if(Number(data.visualUiVersion||0)>=5) return false;
     for(const list of Object.values(data.items||{})){
       for(const item of list||[]){
         if(item.type==="image") continue;
+        if(item.type==="card") item.type="note";
         if(item.type==="section"){
           item.w=Math.max(Number(item.w)||520,420);
           item.h=Math.max(Number(item.h)||90,70);
@@ -102,7 +103,7 @@
         item.h=Math.min(Number(item.h)||150,190);
       }
     }
-    data.visualUiVersion=4;
+    data.visualUiVersion=5;
     return true;
   }
 
@@ -401,7 +402,7 @@
     const type=tpl.querySelector(".item-type"), title=tpl.querySelector(".item-title");
     const body=tpl.querySelector(".item-body"), status=tpl.querySelector(".status-select");
     const source=tpl.querySelector(".source-link");
-    type.textContent=item.type==="image"?"Image":item.type==="card"?"Card":item.type==="section"?"Section":"Sticky";
+    type.textContent=item.type==="image"?"Image":item.type==="section"?"Section":"Note";
     title.value=item.title||""; body.value=item.body||""; status.value=item.status||"open";
 
     if(item.source&&repoBase){source.href=repoBase+item.source;source.classList.add("has-source");}
@@ -481,7 +482,7 @@
     const section=type==="section";
     const item={
       id:uid(type),type,
-      title:data.title||(section?"Section heading":type==="card"?"New card":"New note"),
+      title:data.title||(section?"Section heading":"New note"),
       body:data.body||"",status:data.status||"open",
       x:data.x??(80+(offset%420)),y:data.y??(80+(offset%360)),
       w:data.w??(type==="image"?300:section?520:240),
@@ -612,7 +613,7 @@
       }
     }
     if(addedIds.length){
-      setSelection(addedIds);
+      setSelection([addedIds[addedIds.length-1]]);
       markSaving();
       render();
     }else{
@@ -621,7 +622,6 @@
   }
 
   el("addNoteBtn").addEventListener("click",()=>addItem("note"));
-  el("addCardBtn").addEventListener("click",()=>addItem("card"));
   el("addSectionBtn").addEventListener("click",()=>addItem("section"));
   el("duplicateBtn").addEventListener("click",duplicateSelected);
   el("deleteBtn").addEventListener("click",deleteSelected);
