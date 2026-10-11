@@ -61,3 +61,14 @@ A visual-board item is not canon merely because it exists in Dreamwalker. Zoe ex
 Dreamwalker now detects whether the selected workspace is a Git repository and displays its current branch and whether local changes exist.
 
 This first connection is intentionally read-only for Git operations. Dreamwalker can inspect the book repo status, but it does not yet pull, commit, or push automatically. Those controls can be added after the local connection is verified.
+
+
+## Book Git controls
+
+Dreamwalker now exposes three explicit Git actions for the selected book workspace:
+
+- **Get Latest** runs a fast-forward-only pull for the book repo.
+- **Save Version** saves the current Dreamwalker board state, stages all book-repo changes, and creates a Git commit using the message Zoe provides.
+- **Push to GitHub** pushes committed book changes to the repo's configured remote.
+
+These controls operate on the selected book workspace only. They do not change the Dreamwalker app development repo.
