@@ -429,7 +429,8 @@
           return;
         }
         beginItemDrag(item,e,tpl);
-        render();
+        tpl.classList.add("selected");
+        updateSelectionBar();
       });
     }
 
@@ -444,7 +445,8 @@
       if(e.target.closest("select")) return;
       e.preventDefault();e.stopPropagation();
       beginItemDrag(item,e,tpl);
-      render();
+      tpl.classList.add("selected");
+      updateSelectionBar();
     });
 
     tpl.querySelector(".resize-handle").addEventListener("pointerdown",e=>{
@@ -807,25 +809,37 @@
   });
 
   window.addEventListener("pointermove",e=>{
+    if(pan){
+      canvasShell.scrollLeft=pan.left-(e.clientX-pan.startX);
+      canvasShell.scrollTop=pan.top-(e.clientY-pan.startY);
+      return;
+    }
     if(drag){
-      const item=currentItems().find(i=>i.id===drag.id);
-      const node=canvas.querySelector('[data-id="'+drag.id+'"]');
-      if(item&&node){
-        item.x=Math.max(0,drag.x+e.clientX-drag.startX);
-        item.y=Math.max(0,drag.y+e.clientY-drag.startY);
-        node.style.left=item.x+"px";
-        node.style.top=item.y+"px";
-        ensureCanvasSpace(item);
-        drawConnections();
-        markSaving();
+      const dx=(e.clientX-drag.startX)/zoom;
+      const dy=(e.clientY-drag.startY)/zoom;
+      for(const id of drag.ids||[]){
+        const item=currentItems().find(i=>i.id===id);
+        const startPos=drag.starts?.[id];
+        const node=canvas.querySelector('[data-id="'+id+'"]');
+        if(item&&startPos&&node){
+          item.x=Math.max(0,startPos.x+dx);
+          item.y=Math.max(0,startPos.y+dy);
+          node.style.left=item.x+"px";
+          node.style.top=item.y+"px";
+          ensureCanvasSpace(item);
+        }
       }
+      drawConnections();
+      markSaving();
     }
     if(resize){
       const item=currentItems().find(i=>i.id===resize.id);
       const node=canvas.querySelector('[data-id="'+resize.id+'"]');
       if(item&&node){
-        item.w=Math.max(item.type==="image"?120:150,resize.w+e.clientX-resize.startX);
-        item.h=Math.max(item.type==="image"?90:100,resize.h+e.clientY-resize.startY);
+        const minW=item.type==="image"?120:item.type==="section"?280:150;
+        const minH=item.type==="image"?90:item.type==="section"?60:100;
+        item.w=Math.max(minW,resize.w+(e.clientX-resize.startX)/zoom);
+        item.h=Math.max(minH,resize.h+(e.clientY-resize.startY)/zoom);
         node.style.width=item.w+"px";
         node.style.height=item.h+"px";
         ensureCanvasSpace(item);
@@ -835,17 +849,59 @@
     }
   });
 
-  window.addEventListener("pointerup",()=>{
+  function endPointerAction(){
     drag=null;
     resize=null;
+    pan=null;
+    canvasShell.classList.remove("panning");
+  }
+  window.addEventListener("pointerup",endPointerAction);
+  window.addEventListener("pointercancel",endPointerAction);
+
+  canvasShell.addEventListener("wheel",e=>{
+    if(!(e.ctrlKey||e.metaKey))return;
+    e.preventDefault();
+    const direction=e.deltaY>0?-.1:.1;
+    setZoom(zoom+direction,e.clientX,e.clientY);
+  },{passive:false});
+
+  window.addEventListener("keydown",e=>{
+    const editing=e.target.matches("input,textarea,select");
+    if(e.code==="Space"&&!editing){
+      spaceDown=true;
+      canvasShell.classList.add("pan-ready");
+      e.preventDefault();
+    }
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="z"&&!editing){
+      e.preventDefault();
+      if(e.shiftKey)redo();else undo();
+    }
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="d"&&!editing){
+      e.preventDefault();
+      duplicateSelected();
+    }
+    if((e.key==="Delete"||e.key==="Backspace")&&!editing){
+      deleteSelected();
+    }
+    if(e.key==="Escape"&&!editing){
+      setSelection([]);
+      connectFrom=null;
+      render();
+    }
   });
 
-  window.addEventListener("pointercancel",()=>{
-    drag=null;
-    resize=null;
+  window.addEventListener("keyup",e=>{
+    if(e.code==="Space"){
+      spaceDown=false;
+      canvasShell.classList.remove("pan-ready");
+    }
   });
 
-  canvas.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&!e.target.matches("input,textarea,select"))deleteSelected();});
+  window.addEventListener("blur",()=>{
+    spaceDown=false;
+    endPointerAction();
+    canvasShell.classList.remove("pan-ready");
+  });
 
   loadConfig().then(()=>Promise.all([loadState(),refreshGitStatus()])).then(render).catch(()=>{saveState.textContent="Could not load workspace board";alert("Dreamwalker could not load board data. Start it with the Dreamwalker launcher and a valid book workspace.");});
 })();
