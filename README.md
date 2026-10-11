@@ -54,3 +54,10 @@ The local-first architecture can later evolve into a hosted version using a data
 ## Canon rule
 
 A visual-board item is not canon merely because it exists in Dreamwalker. Zoe explicitly decides what is locked canon.
+
+
+## Book repository connection
+
+Dreamwalker now detects whether the selected workspace is a Git repository and displays its current branch and whether local changes exist.
+
+This first connection is intentionally read-only for Git operations. Dreamwalker can inspect the book repo status, but it does not yet pull, commit, or push automatically. Those controls can be added after the local connection is verified.
