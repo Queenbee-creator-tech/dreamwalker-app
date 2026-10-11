@@ -24,6 +24,16 @@
     }
   }
 
+  async function gitAction(endpoint, body=null){
+    const options=body
+      ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}
+      : {method:"POST"};
+    const res=await fetch(endpoint,options);
+    const result=await res.json();
+    if(!res.ok || !result.ok) throw new Error(result.error||"Git action failed");
+    return result;
+  }
+
   async function refreshGitStatus(){
     if(!gitState)return;
     gitState.textContent="Checking book repo…";
@@ -534,6 +544,48 @@
 
   el("saveNowBtn").addEventListener("click",async()=>{
     clearTimeout(saveTimer);saveState.textContent="Saving now…";await persist();
+  });
+
+  el("getLatestBtn").addEventListener("click",async()=>{
+    saveState.textContent="Getting latest book updates…";
+    try{
+      const result=await gitAction("/api/git-pull");
+      saveState.textContent=result.message||"Book repo updated";
+      await refreshGitStatus();
+    }catch(err){
+      saveState.textContent="Get Latest failed";
+      alert(err.message||"Could not pull the book repo.");
+    }
+  });
+
+  el("saveVersionBtn").addEventListener("click",async()=>{
+    clearTimeout(saveTimer);
+    await persist();
+    const message=window.prompt("Version message","Update Dreamwalker book workspace");
+    if(message===null)return;
+    const trimmed=message.trim();
+    if(!trimmed){alert("Enter a version message.");return;}
+    saveState.textContent="Saving book version…";
+    try{
+      const result=await gitAction("/api/git-commit",{message:trimmed});
+      saveState.textContent=result.message||"Book version saved";
+      await refreshGitStatus();
+    }catch(err){
+      saveState.textContent="Save Version failed";
+      alert(err.message||"Could not commit the book repo.");
+    }
+  });
+
+  el("pushGitBtn").addEventListener("click",async()=>{
+    saveState.textContent="Pushing book repo to GitHub…";
+    try{
+      const result=await gitAction("/api/git-push");
+      saveState.textContent=result.message||"Book repo pushed";
+      await refreshGitStatus();
+    }catch(err){
+      saveState.textContent="Push failed";
+      alert(err.message||"Could not push the book repo.");
+    }
   });
 
   el("exportBtn").addEventListener("click",()=>{
