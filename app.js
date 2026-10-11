@@ -680,6 +680,7 @@
     const parent=findFolder(state.activeFolder);
     if(!parent){alert("Select a folder in the sidebar first.");return;}
     const name=promptName('New subfolder inside "'+parent.folder.name+'"');if(!name)return;
+    pushHistory();
     if(!parent.folder.children)parent.folder.children=[];
     const id=uid("folder");parent.folder.children.push({id,name,boards:[],children:[]});state.activeFolder=id;saveNavigation();markSaving();renderLibrary();
   });
@@ -688,15 +689,16 @@
     const target=findFolder(state.activeFolder);
     if(!target){alert("Select the folder where this board should live.");return;}
     const name=promptName("Board name");if(!name)return;
+    pushHistory();
     const id=uid("board");if(!target.folder.boards)target.folder.boards=[];
-    target.folder.boards.push({id,name});state.items[id]=[];state.activeBoard=id;state.activeFolder=target.folder.id;saveNavigation();markSaving();render();
+    target.folder.boards.push({id,name});state.items[id]=[];state.activeBoard=id;state.activeFolder=target.folder.id;setSelection([]);saveNavigation();markSaving();render();
   });
 
   el("renameFolderBtn").addEventListener("click",()=>{
     const target=findFolder(state.activeFolder);
     if(!target){alert("Select a folder first.");return;}
     const name=promptName("Rename folder",target.folder.name);if(!name)return;
-    target.folder.name=name;markSaving();render();
+    pushHistory();target.folder.name=name;markSaving();render();
   });
 
   el("deleteFolderBtn").addEventListener("click",()=>{
@@ -709,6 +711,7 @@
       return;
     }
     if(!confirm('Delete the empty folder "'+target.folder.name+'"?')) return;
+    pushHistory();
     removeFolderById(state.folders,target.folder.id);
     state.activeFolder=state.folders?.[0]?.id||null;saveNavigation();markSaving();render();
   });
@@ -716,7 +719,7 @@
   el("renameBoardBtn").addEventListener("click",()=>{
     const info=currentBoard();if(!info){alert("Open a board first.");return;}
     const name=promptName("Rename board",info.board.name);if(!name)return;
-    info.board.name=name;markSaving();render();
+    pushHistory();info.board.name=name;markSaving();render();
   });
 
   el("deleteBoardBtn").addEventListener("click",()=>{
@@ -724,11 +727,12 @@
     const count=(state.items[state.activeBoard]||[]).length;
     const warning=count?(' This board contains '+count+' item'+(count===1?'':'s')+'.'):'';
     if(!confirm('Delete the board "'+info.board.name+'"?'+warning+' This cannot be undone from inside the Visual Studio.')) return;
+    pushHistory();
     info.folder.boards=info.folder.boards.filter(b=>b.id!==state.activeBoard);
     delete state.items[state.activeBoard];delete state.connections[state.activeBoard];
     state.activeBoard=firstBoardId();
     const next=findBoard(state.activeBoard);state.activeFolder=next?.folder?.id||state.folders?.[0]?.id||null;
-    selectedId=null;saveNavigation();markSaving();render();
+    setSelection([]);saveNavigation();markSaving();render();
   });
 
   el("saveNowBtn").addEventListener("click",async()=>{
@@ -740,8 +744,9 @@
     try{
       const result=await gitAction("/api/git-pull");
       await loadState();
-      selectedId=null;
+      setSelection([]);
       connectFrom=null;
+      undoStack=[];redoStack=[];
       render();
       saveState.textContent=result.summary==="Already up to date."
         ?"Workspace reloaded from book repo"
@@ -790,7 +795,7 @@
 
   el("importInput").addEventListener("change",e=>{
     const file=e.target.files&&e.target.files[0];if(!file)return;const reader=new FileReader();
-    reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(!parsed.folders||!parsed.items)throw new Error("Invalid");state=parsed;selectedId=null;
+    reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(!parsed.folders||!parsed.items)throw new Error("Invalid");pushHistory();state=parsed;setSelection([]);
         if(!state.activeBoard){
           const first=findFirstBoardInData(state);
           state.activeBoard=first?.board?.id||null;
