@@ -550,7 +550,13 @@
     saveState.textContent="Getting latest book updates…";
     try{
       const result=await gitAction("/api/git-pull");
-      saveState.textContent=result.summary||"Book repo updated";
+      await loadState();
+      selectedId=null;
+      connectFrom=null;
+      render();
+      saveState.textContent=result.summary==="Already up to date."
+        ?"Workspace reloaded from book repo"
+        :(result.summary||"Book repo updated");
       await refreshGitStatus();
     }catch(err){
       saveState.textContent="Get Latest failed";
