@@ -120,7 +120,8 @@ class Handler(SimpleHTTPRequestHandler):
             if result.returncode != 0:
                 return self._git_failure(result,"Git pull failed")
             message=(result.stdout or "Book repo is already up to date.").strip()
-            return self._json(200, {"ok": True, "message": message})
+            summary = "Book repo is already up to date." if "Already up to date" in message else "Latest book updates downloaded."
+            return self._json(200, {"ok": True, "message": message, "summary": summary})
 
         if path == "/api/git-commit":
             message=str(payload.get("message","")).strip()
@@ -133,21 +134,21 @@ class Handler(SimpleHTTPRequestHandler):
 
             staged=self._run_git("diff","--cached","--quiet")
             if staged.returncode == 0:
-                return self._json(200, {"ok": True, "message": "No book changes to save."})
+                return self._json(200, {"ok": True, "message": "No book changes to save.", "summary": "No new book changes to save."})
             if staged.returncode not in (0,1):
                 return self._git_failure(staged,"Could not check staged changes")
 
             commit=self._run_git("commit","-m",message,timeout=60)
             if commit.returncode != 0:
                 return self._git_failure(commit,"Git commit failed")
-            return self._json(200, {"ok": True, "message": (commit.stdout or "Book version saved.").strip()})
+            return self._json(200, {"ok": True, "message": (commit.stdout or "Book version saved.").strip(), "summary": "Version saved to the book repo."})
 
         if path == "/api/git-push":
             result=self._run_git("push",timeout=120)
             if result.returncode != 0:
                 return self._git_failure(result,"Git push failed")
             message=(result.stderr or result.stdout or "Book repo pushed to GitHub.").strip()
-            return self._json(200, {"ok": True, "message": message})
+            return self._json(200, {"ok": True, "message": message, "summary": "Book repo pushed to GitHub."})
 
         if path == "/api/board":
             if not isinstance(payload, dict) or "folders" not in payload or "items" not in payload:
