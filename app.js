@@ -9,7 +9,7 @@
 
   const el = id => document.getElementById(id);
   const canvas = el("canvas"), connectionsSvg = el("connections"), library = el("library");
-  const boardTitle = el("boardTitle"), boardFolderLabel = el("boardFolderLabel"), saveState = el("saveState");
+  const boardTitle = el("boardTitle"), boardFolderLabel = el("boardFolderLabel"), saveState = el("saveState"), gitState = el("gitState");
 
   async function loadConfig(){
     try{
@@ -21,6 +21,34 @@
     }catch(err){
       repoBase="";
       workspaceLabel="workspace";
+    }
+  }
+
+  async function refreshGitStatus(){
+    if(!gitState)return;
+    gitState.textContent="Checking book repo…";
+    gitState.className="git-state";
+    try{
+      const res=await fetch("/api/git-status",{cache:"no-store"});
+      const info=await res.json();
+      if(!res.ok || !info.isGitRepo){
+        gitState.textContent="Book repo: not connected";
+        gitState.classList.add("git-error");
+        return;
+      }
+      const branch=info.branch||"unknown";
+      if(info.clean){
+        gitState.textContent=`Book repo: ${branch} · clean`;
+        gitState.classList.add("git-clean");
+      }else{
+        const count=info.changedCount||0;
+        gitState.textContent=`Book repo: ${branch} · ${count} change${count===1?"":"s"}`;
+        gitState.classList.add("git-dirty");
+      }
+      gitState.title=info.remote?(`origin: ${info.remote}`):"No origin remote found";
+    }catch(err){
+      gitState.textContent="Book repo: status unavailable";
+      gitState.classList.add("git-error");
     }
   }
 
@@ -176,6 +204,7 @@
       const res=await fetch("/api/board",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sharedState)});
       if(!res.ok) throw new Error("Save failed");
       saveState.textContent=`Saved to ${workspaceLabel}`;
+      refreshGitStatus();
     }catch(err){
       saveState.textContent="Saved in browser only — workspace save failed";
     }
@@ -566,5 +595,5 @@
 
   canvas.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&!e.target.matches("input,textarea,select"))deleteSelected();});
 
-  loadConfig().then(loadState).then(render).catch(()=>{saveState.textContent="Could not load workspace board";alert("Dreamwalker could not load board data. Start it with the Dreamwalker launcher and a valid book workspace.");});
+  loadConfig().then(()=>Promise.all([loadState(),refreshGitStatus()])).then(render).catch(()=>{saveState.textContent="Could not load workspace board";alert("Dreamwalker could not load board data. Start it with the Dreamwalker launcher and a valid book workspace.");});
 })();
