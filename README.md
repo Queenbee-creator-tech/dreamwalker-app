@@ -1,6 +1,6 @@
 # Dreamwalker
 
-Dreamwalker is a private, local-first visual planning app for books and story projects.
+Dreamwalker is a local-first visual planning app for books and story projects.
 
 It is the **software/tool**, not the book itself.
 
@@ -58,9 +58,7 @@ A visual-board item is not canon merely because it exists in Dreamwalker. Zoe ex
 
 ## Book repository connection
 
-Dreamwalker now detects whether the selected workspace is a Git repository and displays its current branch and whether local changes exist.
-
-This first connection is intentionally read-only for Git operations. Dreamwalker can inspect the book repo status, but it does not yet pull, commit, or push automatically. Those controls can be added after the local connection is verified.
+Dreamwalker opens the selected book workspace, reads and writes its visual workspace data, detects the workspace's Git status, and can run the explicit book-repo Git controls documented below.
 
 
 ## Book Git controls
