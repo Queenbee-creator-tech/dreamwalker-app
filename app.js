@@ -574,51 +574,106 @@
     const result=await res.json();if(!res.ok)throw new Error(result.error||"Image upload failed");return result.path;
   }
 
-  el("addNoteBtn").addEventListener("click",()=>addItem("note"));
-  el("addCardBtn").addEventListener("click",()=>addItem("card"));
-  el("deleteBtn").addEventListener("click",deleteSelected);
-  el("connectBtn").addEventListener("click",()=>{if(!selectedId){alert("Select a card first, then press Connect.");return;}connectFrom=selectedId;saveState.textContent="Now click the card you want to connect to";});
-  el("bringFrontBtn").addEventListener("click",()=>changeLayer("front"));
-  el("sendBackBtn").addEventListener("click",()=>changeLayer("back"));
+  function canvasPointFromClient(clientX,clientY){
+    const rect=canvas.getBoundingClientRect();
+    return {
+      x:Math.max(0,(clientX-rect.left)/zoom),
+      y:Math.max(0,(clientY-rect.top)/zoom)
+    };
+  }
 
-  el("imageInput").addEventListener("click",e=>{ e.target.value=""; });
-
-  el("imageInput").addEventListener("change",async e=>{
-    const files=Array.from(e.target.files||[]);
-    if(!files.length)return;
-    saveState.textContent=files.length===1?"Saving image to workspace…":"Saving "+files.length+" images to workspace…";
-    let added=0;
-    for(const file of files){
+  async function addImageFiles(files,dropPoint=null){
+    const imageFiles=Array.from(files||[]).filter(file=>file.type.startsWith("image/"));
+    if(!imageFiles.length)return;
+    pushHistory();
+    saveState.textContent=imageFiles.length===1?"Saving image to workspace…":"Saving "+imageFiles.length+" images to workspace…";
+    const addedIds=[];
+    let index=0;
+    for(const file of imageFiles){
       try{
         const path=await uploadImage(file);
         const items=currentItems();
-        const offset=items.length*34;
-        items.push({
-          id:uid("image"),
-          type:"image",
-          title:file.name,
-          body:"",
-          status:"open",
-          x:80+(offset%620),
-          y:80+(offset%420),
-          w:320,
-          h:260,
-          source:"",
-          imagePath:path,
-          z:1
-        });
-        added++;
+        const cols=Math.max(1,Math.ceil(Math.sqrt(imageFiles.length)));
+        const baseX=dropPoint?.x??(100+(items.length*24)%700);
+        const baseY=dropPoint?.y??(100+(items.length*24)%500);
+        const x=baseX+(index%cols)*340;
+        const y=baseY+Math.floor(index/cols)*290;
+        const item={
+          id:uid("image"),type:"image",title:file.name,body:"",status:"open",
+          x,y,w:320,h:260,source:"",imagePath:path,z:1
+        };
+        items.push(item);
+        addedIds.push(item.id);
+        index++;
       }catch(err){
         alert("Could not add "+file.name+": "+(err.message||"upload failed"));
       }
     }
-    if(added){
+    if(addedIds.length){
+      setSelection(addedIds);
       markSaving();
       render();
     }else{
       saveState.textContent="Image save failed";
     }
+  }
+
+  el("addNoteBtn").addEventListener("click",()=>addItem("note"));
+  el("addCardBtn").addEventListener("click",()=>addItem("card"));
+  el("addSectionBtn").addEventListener("click",()=>addItem("section"));
+  el("duplicateBtn").addEventListener("click",duplicateSelected);
+  el("deleteBtn").addEventListener("click",deleteSelected);
+  el("connectBtn").addEventListener("click",()=>{
+    if(selectedIds.size!==1)return;
+    connectFrom=[...selectedIds][0];
+    saveState.textContent="Now click the item you want to connect to";
+  });
+  el("bringFrontBtn").addEventListener("click",()=>changeLayer("front"));
+  el("sendBackBtn").addEventListener("click",()=>changeLayer("back"));
+
+  el("undoBtn").addEventListener("click",undo);
+  el("redoBtn").addEventListener("click",redo);
+  el("zoomOutBtn").addEventListener("click",()=>setZoom(zoom-.1));
+  el("zoomInBtn").addEventListener("click",()=>setZoom(zoom+.1));
+  el("zoomLabel").addEventListener("click",()=>setZoom(1));
+  el("fitBtn").addEventListener("click",fitBoard);
+  el("homeBtn").addEventListener("click",()=>{
+    canvasShell.scrollTo({left:0,top:0,behavior:"smooth"});
+  });
+
+  el("imageInput").addEventListener("click",e=>{ e.target.value=""; });
+  el("imageInput").addEventListener("change",async e=>{
+    await addImageFiles(e.target.files);
     e.target.value="";
+  });
+
+  canvasShell.addEventListener("dragover",e=>{
+    if(Array.from(e.dataTransfer?.items||[]).some(item=>item.type.startsWith("image/"))){
+      e.preventDefault();
+      canvasShell.classList.add("drop-active");
+    }
+  });
+  canvasShell.addEventListener("dragleave",e=>{
+    if(!canvasShell.contains(e.relatedTarget))canvasShell.classList.remove("drop-active");
+  });
+  canvasShell.addEventListener("drop",async e=>{
+    const files=Array.from(e.dataTransfer?.files||[]).filter(file=>file.type.startsWith("image/"));
+    if(!files.length)return;
+    e.preventDefault();
+    canvasShell.classList.remove("drop-active");
+    await addImageFiles(files,canvasPointFromClient(e.clientX,e.clientY));
+  });
+
+  canvas.addEventListener("pointerdown",e=>{
+    if(e.target!==canvas && e.target!==connectionsSvg)return;
+    if(spaceDown || e.button===1){
+      pan={startX:e.clientX,startY:e.clientY,left:canvasShell.scrollLeft,top:canvasShell.scrollTop};
+      canvasShell.classList.add("panning");
+      e.preventDefault();
+    }else{
+      setSelection([]);
+      render();
+    }
   });
 
   el("newFolderBtn").addEventListener("click",()=>{
