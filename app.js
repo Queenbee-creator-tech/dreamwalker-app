@@ -187,6 +187,111 @@
 
   function currentBoard(){ return findBoard(state.activeBoard); }
   function currentItems(){ if(!state.items[state.activeBoard]) state.items[state.activeBoard]=[]; return state.items[state.activeBoard]; }
+  function cloneState(){ return JSON.parse(JSON.stringify(state)); }
+
+  function pushHistory(){
+    if(!state)return;
+    undoStack.push(cloneState());
+    if(undoStack.length>60) undoStack.shift();
+    redoStack=[];
+    updateHistoryButtons();
+  }
+
+  function restoreSnapshot(snapshot){
+    state=JSON.parse(JSON.stringify(snapshot));
+    selectedId=null;
+    selectedIds.clear();
+    connectFrom=null;
+    saveNavigation();
+    markSaving();
+    render();
+  }
+
+  function undo(){
+    if(!undoStack.length)return;
+    redoStack.push(cloneState());
+    restoreSnapshot(undoStack.pop());
+    updateHistoryButtons();
+  }
+
+  function redo(){
+    if(!redoStack.length)return;
+    undoStack.push(cloneState());
+    restoreSnapshot(redoStack.pop());
+    updateHistoryButtons();
+  }
+
+  function updateHistoryButtons(){
+    if(el("undoBtn")) el("undoBtn").disabled=!undoStack.length;
+    if(el("redoBtn")) el("redoBtn").disabled=!redoStack.length;
+  }
+
+  function setSelection(ids){
+    selectedIds=new Set(ids||[]);
+    selectedId=[...selectedIds].at(-1)||null;
+    updateSelectionBar();
+  }
+
+  function toggleSelection(id,additive=false){
+    if(!additive){
+      setSelection([id]);
+      return;
+    }
+    const next=new Set(selectedIds);
+    if(next.has(id)) next.delete(id); else next.add(id);
+    setSelection([...next]);
+  }
+
+  function updateSelectionBar(){
+    if(!selectionBar)return;
+    const count=selectedIds.size;
+    selectionBar.hidden=count===0;
+    if(selectionCount) selectionCount.textContent=count===1?"1 selected":count+" selected";
+    if(el("connectBtn")) el("connectBtn").disabled=count!==1;
+  }
+
+  function updateZoom(){
+    zoom=Math.min(2,Math.max(.35,zoom));
+    canvas.style.zoom=String(zoom);
+    if(zoomLabel) zoomLabel.textContent=Math.round(zoom*100)+"%";
+  }
+
+  function setZoom(next,anchorX=null,anchorY=null){
+    const old=zoom;
+    const shellRect=canvasShell.getBoundingClientRect();
+    const ax=anchorX??(shellRect.left+shellRect.width/2);
+    const ay=anchorY??(shellRect.top+shellRect.height/2);
+    const contentX=(canvasShell.scrollLeft+(ax-shellRect.left))/old;
+    const contentY=(canvasShell.scrollTop+(ay-shellRect.top))/old;
+    zoom=next;
+    updateZoom();
+    canvasShell.scrollLeft=contentX*zoom-(ax-shellRect.left);
+    canvasShell.scrollTop=contentY*zoom-(ay-shellRect.top);
+  }
+
+  function fitBoard(){
+    const items=currentItems();
+    if(!items.length){ zoom=1; updateZoom(); canvasShell.scrollTo({left:0,top:0,behavior:"smooth"}); return; }
+    const minX=Math.min(...items.map(i=>Number(i.x)||0));
+    const minY=Math.min(...items.map(i=>Number(i.y)||0));
+    const maxX=Math.max(...items.map(i=>(Number(i.x)||0)+(Number(i.w)||240)));
+    const maxY=Math.max(...items.map(i=>(Number(i.y)||0)+(Number(i.h)||150)));
+    const pad=120;
+    const target=Math.min(
+      1.25,
+      Math.max(.35,Math.min(
+        canvasShell.clientWidth/(maxX-minX+pad*2),
+        canvasShell.clientHeight/(maxY-minY+pad*2)
+      ))
+    );
+    zoom=target;
+    updateZoom();
+    canvasShell.scrollTo({
+      left:Math.max(0,(minX-pad)*zoom),
+      top:Math.max(0,(minY-pad)*zoom),
+      behavior:"smooth"
+    });
+  }
 
   function renderFolder(folder,depth=0){
     const wrap=document.createElement("section");
@@ -217,7 +322,7 @@
     title.type="button";
     title.className="folder-title folder-title-button"+(folder.id===state.activeFolder?" active-folder":"");
     title.textContent=folder.name;
-    title.title="Select this folder, then use + Subfolder or + Board";
+    title.title="Select this folder, then use + Folder or + Board";
     title.addEventListener("click",()=>{state.activeFolder=folder.id;saveNavigation();renderLibrary();});
     row.appendChild(title);
     wrap.appendChild(row);
@@ -230,7 +335,7 @@
         b.textContent=board.name;
         b.addEventListener("click",()=>{
           state.activeBoard=board.id; state.activeFolder=folder.id;
-          selectedId=null;connectFrom=null;saveNavigation();render();
+          setSelection([]); connectFrom=null; saveNavigation(); render();
         });
         wrap.appendChild(b);
       });
@@ -260,30 +365,54 @@
   function render(){
     renderLibrary();
     const info=currentBoard();
-    if(!info) return;
+    if(!info)return;
     boardTitle.textContent=info.board.name;
     boardFolderLabel.textContent=info.path.map(f=>f.name).join(" / ");
     canvas.querySelectorAll(".board-item").forEach(n=>n.remove());
     currentItems().forEach(item=>canvas.appendChild(makeItemNode(item)));
     ensureCanvasSpace();
+    updateZoom();
+    updateSelectionBar();
+    updateHistoryButtons();
     drawConnections();
+  }
+
+  function beginItemDrag(item,e,node){
+    if(!selectedIds.has(item.id)) toggleSelection(item.id,e.shiftKey);
+    if(!selectedIds.has(item.id)) return;
+    pushHistory();
+    const starts={};
+    for(const id of selectedIds){
+      const found=currentItems().find(i=>i.id===id);
+      if(found) starts[id]={x:Number(found.x)||0,y:Number(found.y)||0};
+    }
+    drag={ids:[...selectedIds],startX:e.clientX,startY:e.clientY,starts};
+    node.setPointerCapture(e.pointerId);
   }
 
   function makeItemNode(item){
     const tpl=el("itemTemplate").content.firstElementChild.cloneNode(true);
-    tpl.dataset.id=item.id; tpl.dataset.status=item.status||"open";
+    tpl.dataset.id=item.id; tpl.dataset.status=item.status||"open"; tpl.dataset.type=item.type||"note";
     tpl.style.left=(item.x||40)+"px"; tpl.style.top=(item.y||40)+"px";
     tpl.style.width=(item.w||240)+"px"; tpl.style.height=(item.h||150)+"px";
     tpl.style.zIndex=String(item.z||1);
-    if(item.id===selectedId) tpl.classList.add("selected");
+    if(selectedIds.has(item.id)) tpl.classList.add("selected");
 
     const type=tpl.querySelector(".item-type"), title=tpl.querySelector(".item-title");
     const body=tpl.querySelector(".item-body"), status=tpl.querySelector(".status-select");
     const source=tpl.querySelector(".source-link");
-    type.textContent=item.type==="image"?"Image":item.type==="card"?"Card":"Sticky";
+    type.textContent=item.type==="image"?"Image":item.type==="card"?"Card":item.type==="section"?"Section":"Sticky";
     title.value=item.title||""; body.value=item.body||""; status.value=item.status||"open";
 
     if(item.source&&repoBase){source.href=repoBase+item.source;source.classList.add("has-source");}
+
+    if(item.type==="section"){
+      tpl.classList.add("section-card");
+      body.remove();
+      status.closest(".item-handle").querySelector(".item-type").textContent="Section";
+      status.style.display="none";
+    }
+
     if(item.type==="image"){
       tpl.classList.add("image-card"); body.remove();
       const img=document.createElement("img");
@@ -293,40 +422,51 @@
       title.insertAdjacentElement("afterend",img);
 
       img.addEventListener("pointerdown",e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        selectedId=item.id;
+        e.preventDefault(); e.stopPropagation();
         if(connectFrom&&connectFrom!==item.id){
           addConnection(connectFrom,item.id);
           connectFrom=null;
           return;
         }
-        drag={id:item.id,startX:e.clientX,startY:e.clientY,x:item.x||0,y:item.y||0};
-        tpl.setPointerCapture(e.pointerId);
-        tpl.classList.add("selected");
+        beginItemDrag(item,e,tpl);
+        render();
       });
     }
 
     tpl.addEventListener("pointerdown",e=>{
       if(e.target.closest("input,textarea,select,a,.resize-handle")) return;
-      selectedId=item.id;
-      if(connectFrom&&connectFrom!==item.id){addConnection(connectFrom,item.id);connectFrom=null;}
+      if(connectFrom&&connectFrom!==item.id){addConnection(connectFrom,item.id);connectFrom=null;return;}
+      toggleSelection(item.id,e.shiftKey);
       render();
     });
+
     tpl.querySelector(".item-handle").addEventListener("pointerdown",e=>{
       if(e.target.closest("select")) return;
-      e.preventDefault(); selectedId=item.id;
-      drag={id:item.id,startX:e.clientX,startY:e.clientY,x:item.x||0,y:item.y||0};
-      tpl.setPointerCapture(e.pointerId); tpl.classList.add("selected");
+      e.preventDefault();e.stopPropagation();
+      beginItemDrag(item,e,tpl);
+      render();
     });
+
     tpl.querySelector(".resize-handle").addEventListener("pointerdown",e=>{
-      e.preventDefault();e.stopPropagation();selectedId=item.id;
-      resize={id:item.id,startX:e.clientX,startY:e.clientY,w:item.w||260,h:item.h||210};
+      e.preventDefault();e.stopPropagation();
+      if(!selectedIds.has(item.id))setSelection([item.id]);
+      pushHistory();
+      resize={id:item.id,startX:e.clientX,startY:e.clientY,w:item.w||240,h:item.h||150};
       tpl.setPointerCapture(e.pointerId);
     });
+
+    const snapshotEdit=()=>{
+      if(tpl.dataset.editSnapshot)return;
+      tpl.dataset.editSnapshot="1";
+      pushHistory();
+    };
+    title.addEventListener("focus",snapshotEdit,{once:true});
     title.addEventListener("input",()=>{item.title=title.value;markSaving();});
-    if(body) body.addEventListener("input",()=>{item.body=body.value;markSaving();});
-    status.addEventListener("change",()=>{item.status=status.value;tpl.dataset.status=item.status;markSaving();});
+    if(body){
+      body.addEventListener("focus",snapshotEdit,{once:true});
+      body.addEventListener("input",()=>{item.body=body.value;markSaving();});
+    }
+    status.addEventListener("change",()=>{pushHistory();item.status=status.value;tpl.dataset.status=item.status;markSaving();});
     return tpl;
   }
 
@@ -334,31 +474,60 @@
 
   function addItem(type,data={}){
     if(!state.activeBoard){alert("Open a board first.");return;}
+    pushHistory();
     const items=currentItems(),offset=items.length*28;
-    items.push({id:uid(type),type,title:data.title||(type==="card"?"New card":"New note"),body:data.body||"",status:data.status||"open",
-      x:80+(offset%420),y:80+(offset%360),w:type==="image"?300:240,h:type==="image"?260:150,source:data.source||"",imagePath:data.imagePath||"",z:data.z||1});
+    const section=type==="section";
+    const item={
+      id:uid(type),type,
+      title:data.title||(section?"Section heading":type==="card"?"New card":"New note"),
+      body:data.body||"",status:data.status||"open",
+      x:data.x??(80+(offset%420)),y:data.y??(80+(offset%360)),
+      w:data.w??(type==="image"?300:section?520:240),
+      h:data.h??(type==="image"?260:section?90:150),
+      source:data.source||"",imagePath:data.imagePath||"",z:data.z||1
+    };
+    items.push(item);
+    setSelection([item.id]);
     markSaving();render();
   }
 
   function deleteSelected(){
-    if(!selectedId)return;
-    state.items[state.activeBoard]=currentItems().filter(i=>i.id!==selectedId);
-    const c=state.connections[state.activeBoard]||[];
-    state.connections[state.activeBoard]=c.filter(x=>x.from!==selectedId&&x.to!==selectedId);
-    selectedId=null;markSaving();render();
+    if(!selectedIds.size)return;
+    pushHistory();
+    const ids=new Set(selectedIds);
+    state.items[state.activeBoard]=currentItems().filter(i=>!ids.has(i.id));
+    const connections=state.connections[state.activeBoard]||[];
+    state.connections[state.activeBoard]=connections.filter(x=>!ids.has(x.from)&&!ids.has(x.to));
+    setSelection([]);
+    markSaving();render();
+  }
+
+  function duplicateSelected(){
+    if(!selectedIds.size)return;
+    pushHistory();
+    const items=currentItems();
+    const originals=items.filter(i=>selectedIds.has(i.id));
+    const copies=originals.map((item,index)=>({
+      ...JSON.parse(JSON.stringify(item)),
+      id:uid(item.type||"item"),
+      x:(Number(item.x)||0)+36+(index*8),
+      y:(Number(item.y)||0)+36+(index*8),
+      z:(Number(item.z)||1)+1
+    }));
+    items.push(...copies);
+    setSelection(copies.map(i=>i.id));
+    markSaving();render();
   }
 
   function changeLayer(direction){
-    if(!selectedId){alert("Select an image, sticky note, or card first.");return;}
+    if(!selectedIds.size)return;
+    pushHistory();
     const items=currentItems();
-    const item=items.find(i=>i.id===selectedId);
-    if(!item)return;
+    const selected=items.filter(i=>selectedIds.has(i.id));
     const zValues=items.map(i=>Number(i.z||1));
-    item.z=direction==="front"
-      ? Math.max(1,...zValues)+1
-      : Math.min(1,...zValues)-1;
-    markSaving();
-    render();
+    let z=direction==="front"?Math.max(1,...zValues)+1:Math.min(1,...zValues)-selected.length;
+    for(const item of selected){ item.z=z; z+=1; }
+    markSaving();render();
   }
 
   function addConnection(from,to){
