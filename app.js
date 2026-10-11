@@ -285,10 +285,10 @@
   function ensureCanvasSpace(extraItem=null){
     const items=[...currentItems()];
     if(extraItem && !items.includes(extraItem)) items.push(extraItem);
-    let neededWidth=3200, neededHeight=2400;
+    let neededWidth=6000, neededHeight=4500;
     for(const item of items){
-      neededWidth=Math.max(neededWidth,(item.x||0)+(item.w||260)+700);
-      neededHeight=Math.max(neededHeight,(item.y||0)+(item.h||210)+700);
+      neededWidth=Math.max(neededWidth,(item.x||0)+(item.w||240)+1400);
+      neededHeight=Math.max(neededHeight,(item.y||0)+(item.h||150)+1200);
     }
     canvas.style.width=neededWidth+"px";
     canvas.style.height=neededHeight+"px";
@@ -310,7 +310,7 @@
     const tpl=el("itemTemplate").content.firstElementChild.cloneNode(true);
     tpl.dataset.id=item.id; tpl.dataset.status=item.status||"open";
     tpl.style.left=(item.x||40)+"px"; tpl.style.top=(item.y||40)+"px";
-    tpl.style.width=(item.w||260)+"px"; tpl.style.height=(item.h||210)+"px";
+    tpl.style.width=(item.w||240)+"px"; tpl.style.height=(item.h||150)+"px";
     tpl.style.zIndex=String(item.z||1);
     if(item.id===selectedId) tpl.classList.add("selected");
 
@@ -373,7 +373,7 @@
     if(!state.activeBoard){alert("Open a board first.");return;}
     const items=currentItems(),offset=items.length*28;
     items.push({id:uid(type),type,title:data.title||(type==="card"?"New card":"New note"),body:data.body||"",status:data.status||"open",
-      x:80+(offset%420),y:80+(offset%360),w:type==="image"?300:280,h:type==="image"?260:210,source:data.source||"",imagePath:data.imagePath||"",z:data.z||1});
+      x:80+(offset%420),y:80+(offset%360),w:type==="image"?300:240,h:type==="image"?260:150,source:data.source||"",imagePath:data.imagePath||"",z:data.z||1});
     markSaving();render();
   }
 
@@ -448,6 +448,8 @@
   el("connectBtn").addEventListener("click",()=>{if(!selectedId){alert("Select a card first, then press Connect.");return;}connectFrom=selectedId;saveState.textContent="Now click the card you want to connect to";});
   el("bringFrontBtn").addEventListener("click",()=>changeLayer("front"));
   el("sendBackBtn").addEventListener("click",()=>changeLayer("back"));
+
+  el("imageInput").addEventListener("click",e=>{ e.target.value=""; });
 
   el("imageInput").addEventListener("change",async e=>{
     const files=Array.from(e.target.files||[]);
@@ -630,8 +632,8 @@
       const item=currentItems().find(i=>i.id===resize.id);
       const node=canvas.querySelector('[data-id="'+resize.id+'"]');
       if(item&&node){
-        item.w=Math.max(item.type==="image"?120:180,resize.w+e.clientX-resize.startX);
-        item.h=Math.max(item.type==="image"?90:130,resize.h+e.clientY-resize.startY);
+        item.w=Math.max(item.type==="image"?120:150,resize.w+e.clientX-resize.startX);
+        item.h=Math.max(item.type==="image"?90:100,resize.h+e.clientY-resize.startY);
         node.style.width=item.w+"px";
         node.style.height=item.h+"px";
         ensureCanvasSpace(item);
